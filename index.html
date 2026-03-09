@@ -22,14 +22,37 @@
     input:focus, select:focus, textarea:focus { outline: none; border-color: #00A651; box-shadow: 0 0 0 2px rgba(0,166,81,0.15); }
     textarea { resize: vertical; min-height: 80px; }
     .divider { border: none; border-top: 1px solid #e0e0e0; margin: 28px 0; }
-    .crew-row { background: #f9fdf9; border: 1px solid #d4edda; border-radius: 6px; padding: 16px; position: relative; margin-bottom: 12px; }
+
+    /* Crew row */
+    .crew-row { background: #f9fdf9; border: 1px solid #d4edda; border-radius: 6px; padding: 16px; position: relative; margin-bottom: 12px; transition: border-color 0.2s, background 0.2s; }
+    .crew-row.needs-followup { border-color: #f5a623; background: #fffdf5; }
     .crew-row-number { font-size: 12px; font-weight: bold; color: #00A651; margin-bottom: 10px; }
     .crew-row-fields { display: grid; grid-template-columns: 2fr 2fr 1fr 3fr; gap: 12px; align-items: end; }
+    .crew-row-footer { display: flex; align-items: center; justify-content: flex-end; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e8e8e8; gap: 10px; }
+
+    /* Follow-up checkbox */
+    .followup-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: bold; color: #1a3a5c; user-select: none; }
+    .followup-label input[type="checkbox"] { display: none; }
+    .followup-checkbox-custom { width: 18px; height: 18px; border: 2px solid #ccc; border-radius: 3px; background: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: border-color 0.15s, background 0.15s; position: relative; }
+    .followup-label input[type="checkbox"]:checked + .followup-checkbox-custom { background: #f5a623; border-color: #f5a623; }
+    .followup-checkbox-custom::after { content: ''; display: none; width: 5px; height: 9px; border: 2px solid #fff; border-top: none; border-left: none; transform: rotate(45deg); position: absolute; top: 1px; }
+    .followup-label input[type="checkbox"]:checked + .followup-checkbox-custom::after { display: block; }
+    .followup-badge { display: none; font-size: 11px; font-weight: bold; color: #f5a623; background: #fff8e7; border: 1px solid #f5a623; border-radius: 4px; padding: 2px 8px; }
+    .crew-row.needs-followup .followup-badge { display: inline-block; }
+
+    /* Notes required state */
+    .notes-required-hint { font-size: 11px; color: #f5a623; margin-top: 3px; display: none; }
+    .crew-row.needs-followup .notes-required-hint { display: block; }
+    input.notes-field-required { border-color: #f5a623 !important; }
+    input.notes-field-required:focus { box-shadow: 0 0 0 2px rgba(245,166,35,0.2) !important; }
+
+    /* Stars */
     .star-rating { display: flex; flex-direction: row-reverse; gap: 4px; justify-content: flex-end; }
     .star-rating input[type="radio"] { display: none; }
     .star-rating label { font-size: 28px; color: #ccc; cursor: pointer; transition: color 0.15s; font-weight: normal; }
     .star-rating input[type="radio"]:checked ~ label { color: #f5a623; }
     .star-rating label:hover, .star-rating label:hover ~ label { color: #f5a623; }
+
     .remove-btn { position: absolute; top: 12px; right: 12px; background: none; border: none; color: #999; font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
     .remove-btn:hover { background: #ffe0e0; color: #cc0000; }
     .add-btn { background: #e8f5ee; color: #00A651; border: 1px dashed #00A651; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 8px; }
@@ -49,7 +72,7 @@
   <div class="container">
     <div class="header">
       <h1>IC Crew Performance Rating</h1>
-      <div class="logo">The Loomex Group<br>Response and Readiness Division</div>
+      <div class="logo">The Loomex Group<br>Emergency Management Division</div>
     </div>
 
     <div class="form-body">
@@ -95,15 +118,19 @@
     </div>
 
     <div class="footer">
-      <p>The Loomex Group - Response and Readiness Division</p>
+      <p>The Loomex Group - Emergency Management Division</p>
     </div>
   </div>
 
   <script>
-    const API_TOKEN = 'patxBY6se421TEbNh.89f9738bc85a03ac30251342b09096cee6a5581293d153cdf37f644364328bd6';
-    const BASE_ID = 'appAlbRdGIkHaTiI2';
-    const TABLE_ID = 'tbltKk7enq5wOKNvY';
-    const AIRTABLE_URL = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}`;
+    // ---------------------------------------------------------------------------
+    // CONFIG
+    // WORKER_URL  — paste your Cloudflare Worker URL after deploying
+    // FORM_SECRET — must match the FORM_SECRET secret set in your Worker
+    // ---------------------------------------------------------------------------
+    const WORKER_URL  = 'emperformance.loomex-it.workers.dev';
+    const FORM_SECRET = 'loom550adsfhasdkfjhsdlkjfnzxcvjnzlshgfasfhgasjhgsldknflskdjgfaoishgfafjnglskfnmoeqpWIADKSEOUGRONFaeufa';
+    // ---------------------------------------------------------------------------
 
     let crewCount = 0;
 
@@ -117,7 +144,7 @@
       row.id = rowId;
       row.innerHTML = `
         <div class="crew-row-number">Crew Member ${crewCount}</div>
-        <button class="remove-btn" onclick="removeCrewRow('${rowId}')" title="Remove">✕</button>
+        <button class="remove-btn" onclick="removeCrewRow('${rowId}')" title="Remove">&#x2715;</button>
         <div class="crew-row-fields">
           <div class="field-group">
             <label>Name *</label>
@@ -131,21 +158,30 @@
             <label>Rating *</label>
             <div class="star-rating">
               <input type="radio" name="rating_${rowId}" id="r5_${rowId}" value="5">
-              <label for="r5_${rowId}">★</label>
+              <label for="r5_${rowId}">&#9733;</label>
               <input type="radio" name="rating_${rowId}" id="r4_${rowId}" value="4">
-              <label for="r4_${rowId}">★</label>
+              <label for="r4_${rowId}">&#9733;</label>
               <input type="radio" name="rating_${rowId}" id="r3_${rowId}" value="3">
-              <label for="r3_${rowId}">★</label>
+              <label for="r3_${rowId}">&#9733;</label>
               <input type="radio" name="rating_${rowId}" id="r2_${rowId}" value="2">
-              <label for="r2_${rowId}">★</label>
+              <label for="r2_${rowId}">&#9733;</label>
               <input type="radio" name="rating_${rowId}" id="r1_${rowId}" value="1">
-              <label for="r1_${rowId}">★</label>
+              <label for="r1_${rowId}">&#9733;</label>
             </div>
           </div>
           <div class="field-group">
             <label>Notes</label>
             <input type="text" class="crew-notes" placeholder="Optional notes">
+            <span class="notes-required-hint">Notes are required when flagging for follow-up.</span>
           </div>
+        </div>
+        <div class="crew-row-footer">
+          <label class="followup-label" title="Flag this crew member for EOC staffing review">
+            <input type="checkbox" class="crew-followup" onchange="toggleFollowUp('${rowId}', this)">
+            <span class="followup-checkbox-custom"></span>
+            Needs Follow Up
+          </label>
+          <span class="followup-badge">Flagged for Review</span>
         </div>
       `;
       document.getElementById('crewRows').appendChild(row);
@@ -153,6 +189,20 @@
 
     function removeCrewRow(rowId) {
       document.getElementById(rowId)?.remove();
+    }
+
+    function toggleFollowUp(rowId, checkbox) {
+      const row = document.getElementById(rowId);
+      const notesInput = row.querySelector('.crew-notes');
+      if (checkbox.checked) {
+        row.classList.add('needs-followup');
+        notesInput.classList.add('notes-field-required');
+        notesInput.placeholder = 'Required — describe the follow-up concern';
+      } else {
+        row.classList.remove('needs-followup');
+        notesInput.classList.remove('notes-field-required');
+        notesInput.placeholder = 'Optional notes';
+      }
     }
 
     function getSelectedRating(rowId) {
@@ -179,14 +229,27 @@
 
       const records = [];
       let valid = true;
+      let validationMsg = '';
 
       crewRows.forEach(row => {
+        if (!valid) return;
         const name = row.querySelector('.crew-name').value.trim();
         const position = row.querySelector('.crew-position').value.trim();
         const rating = getSelectedRating(row.id);
         const notes = row.querySelector('.crew-notes').value.trim();
+        const needsFollowUp = row.querySelector('.crew-followup').checked;
 
-        if (!name) { valid = false; return; }
+        if (!name) {
+          valid = false;
+          validationMsg = 'Please enter a name for every crew member.';
+          return;
+        }
+
+        if (needsFollowUp && !notes) {
+          valid = false;
+          validationMsg = 'Notes are required for any crew member flagged for follow-up. Check the entries highlighted in orange.';
+          return;
+        }
 
         const fields = {
           'IC Name': icName,
@@ -195,7 +258,8 @@
           'General Comments': generalComments,
           'Crew Member Name': name,
           'Position': position,
-          'Notes': notes
+          'Notes': notes,
+          'Needs Follow Up': needsFollowUp
         };
 
         if (rating !== null) fields['Rating'] = rating;
@@ -204,7 +268,7 @@
       });
 
       if (!valid) {
-        showStatus('Please enter a name for every crew member.', 'error');
+        showStatus(validationMsg, 'error');
         return;
       }
 
@@ -215,11 +279,11 @@
       try {
         for (let i = 0; i < records.length; i += 10) {
           const chunk = records.slice(i, i + 10);
-          const response = await fetch(AIRTABLE_URL, {
+          const response = await fetch(WORKER_URL, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${API_TOKEN}`,
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'X-Form-Secret': FORM_SECRET
             },
             body: JSON.stringify({ records: chunk })
           });
@@ -262,6 +326,4 @@
     addCrewRow();
   </script>
 </body>
-
 </html>
-
